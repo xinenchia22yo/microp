@@ -6,20 +6,7 @@
 I2C_HandleTypeDef hi2c1;
 uint8_t lcd_addr = 0;
 
-#define MAX_ASGN 5
-
-typedef enum { PROGRESS, WARNING } Status;
-
-typedef struct {
-    int id;
-    int days_left;
-    Status status;
-} Assignment;
-
-Assignment list[MAX_ASGN];
-int total_asgn = 0;
-
-uint8_t lcd_pos = 0;   // Cursor position
+uint8_t lcd_pos = 0;
 
 /* ================= LCD FUNCTIONS ================= */
 
@@ -46,9 +33,9 @@ void LCD_Init(void)
     HAL_Delay(100);
     LCD_Send(0x33, 0);
     LCD_Send(0x32, 0);
-    LCD_Send(0x28, 0); // 4-bit, 2-line
-    LCD_Send(0x0C, 0); // Display ON
-    LCD_Send(0x01, 0); // Clear
+    LCD_Send(0x28, 0);   // 4-bit, 2-line
+    LCD_Send(0x0C, 0);   // Display ON
+    LCD_Send(0x01, 0);   // Clear
     HAL_Delay(5);
 }
 
@@ -92,41 +79,57 @@ int main(void)
 {
     HAL_Init();
 
+    /* ---------- CLOCK ENABLE ---------- */
     __HAL_RCC_GPIOA_CLK_ENABLE();
     __HAL_RCC_GPIOB_CLK_ENABLE();
     __HAL_RCC_I2C1_CLK_ENABLE();
 
-    GPIO_InitTypeDef GPIO_InitStruct = {0};
+    GPIO_InitTypeDef GPIO_InitStruct;
 
-    /* Keypad Inputs PA0–PA3 */
-    GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3;
+    /* ---------- KEYPAD INPUTS PA0–PA3 ---------- */
+    GPIO_InitStruct.Pin = GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3;
     GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
     GPIO_InitStruct.Pull = GPIO_PULLUP;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    GPIO_InitStruct.Alternate = 0;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-    /* Keypad Outputs PA4–PA7 */
-    GPIO_InitStruct.Pin = GPIO_PIN_4|GPIO_PIN_5|GPIO_PIN_6|GPIO_PIN_7;
+    /* ---------- KEYPAD OUTPUTS PA4–PA7 ---------- */
+    GPIO_InitStruct.Pin = GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_6 | GPIO_PIN_7;
     GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    GPIO_InitStruct.Alternate = 0;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-    /* LEDs PB0–PB2 */
-    GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_2;
+    /* ---------- LEDs PB0–PB2 ---------- */
+    GPIO_InitStruct.Pin = GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2;
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    GPIO_InitStruct.Alternate = 0;
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-    /* I2C PB8 PB9 */
-    GPIO_InitStruct.Pin = GPIO_PIN_8|GPIO_PIN_9;
+    /* ---------- I2C PINS PB8 PB9 ---------- */
+    GPIO_InitStruct.Pin = GPIO_PIN_8 | GPIO_PIN_9;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;
+    GPIO_InitStruct.Pull = GPIO_PULLUP;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
     GPIO_InitStruct.Alternate = GPIO_AF4_I2C1;
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-    /* I2C Init */
+    /* ---------- I2C INIT (COMPLETE) ---------- */
     hi2c1.Instance = I2C1;
-    hi2c1.Init.ClockSpeed = 10000;
+    hi2c1.Init.ClockSpeed = 100000;
     hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
+    hi2c1.Init.OwnAddress1 = 0;
     hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+    hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+    hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+    hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
     HAL_I2C_Init(&hi2c1);
 
-    /* Scan LCD Address */
+    /* ---------- LCD ADDRESS SCAN ---------- */
     uint8_t addrs[] = {0x27 << 1, 0x3F << 1};
     for (int i = 0; i < 2; i++) {
         if (HAL_I2C_IsDeviceReady(&hi2c1, addrs[i], 3, 100) == HAL_OK) {
@@ -135,17 +138,18 @@ int main(void)
         }
     }
 
+    /* ---------- LCD START ---------- */
     LCD_Init();
     LCD_Clear();
-    LCD_Send(0x80, 0);
     LCD_Send('>', 1);
 
     /* ================= LOOP ================= */
 
     while (1)
     {
-        HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_0); // heartbeat
-        HAL_Delay(100);
+        /* Heartbeat LED */
+        HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_0);
+        HAL_Delay(300);
 
         char key = Keypad_Scan();
 
@@ -153,19 +157,9 @@ int main(void)
         {
             HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_SET);
 
-            /* Display key immediately */
             LCD_Send(0x80 + lcd_pos + 1, 0);
             LCD_Send(key, 1);
             lcd_pos++;
-
-            /* Save assignment if numeric */
-            if (key >= '1' && key <= '9' && total_asgn < MAX_ASGN) {
-                list[total_asgn].id = total_asgn + 1;
-                list[total_asgn].days_left = key - '0';
-                list[total_asgn].status =
-                    (list[total_asgn].days_left <= 3) ? WARNING : PROGRESS;
-                total_asgn++;
-            }
 
             HAL_Delay(200);
             HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_RESET);
