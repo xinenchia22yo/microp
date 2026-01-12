@@ -203,59 +203,82 @@ int main(void) {
             while(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_10) == GPIO_PIN_RESET);
         }
 
+        // --- 3. KEYPAD HANDLING ---
         char key = Keypad_Scan();
         if (key) {
-            // VIEW MODE (Key A)
+
+            // --- KEY 'A' ---
             if (key == 'A') {
                 if (assignment_count == 0) {
                     LCD_Clear(); LCD_Print("No Data!"); HAL_Delay(800);
                     LCD_Clear(); LCD_Print("Asgn #1 Code:"); LCD_Send(0xC0, 0);
                 } else {
-                    current_state = DISPLAY_MODE;
-                    display_idx = (display_idx + 1) % assignment_count;
+                    if (current_state != DISPLAY_MODE) {
+                        // First press -> enter display mode
+                        current_state = DISPLAY_MODE;
+                        display_idx = 0; // start from #1
+                    } else {
+                        // Scroll to next assignment
+                        display_idx = (display_idx + 1) % assignment_count;
+                    }
                     Update_Display_And_LEDs();
                 }
             }
-            // EXIT VIEW (Key *)
+
+            // --- EXIT VIEW ('*') ---
             else if (key == '*' && current_state == DISPLAY_MODE) {
                 current_state = (assignment_count >= 5) ? LIST_FULL : INPUT_COURSE;
                 HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2, GPIO_PIN_RESET);
                 LCD_Clear();
-                if (current_state == LIST_FULL) LCD_Print("Storage Full!");
+                if (current_state == LIST_FULL) LCD_Print("STORAGE FULL");
                 else {
                     char msg[16]; sprintf(msg, "Asgn #%d Code:", assignment_count + 1);
                     LCD_Print(msg); LCD_Send(0xC0, 0);
                 }
             }
-            // DATA ENTRY
-            else if (current_state != DISPLAY_MODE) {
-                if (key == '*') { // Enter/Save
+
+            // --- DATA ENTRY MODE ---
+            else if (current_state != DISPLAY_MODE && current_state != LIST_FULL) {
+
+                // ENTER / SAVE (*)
+                if (key == '*') {
                     if (current_state == INPUT_COURSE && str_idx > 0) {
                         current_state = INPUT_DAYS; str_idx = 0;
                         LCD_Clear(); LCD_Print("Days Left:"); LCD_Send(0xC0, 0);
-                    } else if (current_state == INPUT_DAYS && str_idx > 0) {
+                    } 
+                    else if (current_state == INPUT_DAYS && str_idx > 0) {
+                        // Save assignment
                         strcpy(myAssignments[assignment_count].code, temp_course);
                         strcpy(myAssignments[assignment_count].days, temp_days);
                         myAssignments[assignment_count].submitted = 0;
                         assignment_count++;
-                        LCD_Clear(); LCD_Print("Saved!"); HAL_Delay(800);
-                        if (assignment_count >= 5) current_state = LIST_FULL;
-                        else {
+
+                        LCD_Clear();
+                        if (assignment_count >= 5) {
+                            current_state = LIST_FULL;
+                            LCD_Print("STORAGE FULL");
+                        } else {
                             current_state = INPUT_COURSE; str_idx = 0;
-                            memset(temp_course, 0, 10); memset(temp_days, 0, 5);
-                            LCD_Clear();
+                            memset(temp_course, 0, sizeof(temp_course));
+                            memset(temp_days, 0, sizeof(temp_days));
                             char msg[16]; sprintf(msg, "Asgn #%d Code:", assignment_count+1);
                             LCD_Print(msg); LCD_Send(0xC0, 0);
                         }
                     }
-                } else if (key == '#') { // Backspace
+                }
+
+                // BACKSPACE (#)
+                else if (key == '#') {
                     if (str_idx > 0) {
                         str_idx--;
                         if (current_state == INPUT_COURSE) temp_course[str_idx] = 0;
                         else temp_days[str_idx] = 0;
                         LCD_Send(0x10, 0); LCD_Send(' ', 1); LCD_Send(0x10, 0);
                     }
-                } else { // Typing
+                }
+
+                // TYPING
+                else {
                     if (current_state == INPUT_COURSE && str_idx < 9) {
                         temp_course[str_idx++] = key; LCD_Send(key, 1);
                     } else if (current_state == INPUT_DAYS && str_idx < 4) {
@@ -263,7 +286,8 @@ int main(void) {
                     }
                 }
             }
-            HAL_Delay(200); 
+
+            HAL_Delay(200); // simple debounce
         }
     }
 }
