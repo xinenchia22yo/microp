@@ -98,7 +98,14 @@ void Update_Display_And_LEDs(void) {
     LCD_Print(line2);
 }
 
-
+/* ================= KEYPAD ================= */
+char Keypad_Scan(void) {
+    char keys[4][4] = {
+        {'D','#','0','*'},
+        {'C','9','8','7'},
+        {'B','6','5','4'},
+        {'A','3','2','1'}
+    };
 
     for(int i=0;i<4;i++){
         HAL_GPIO_WritePin(GPIOA,(GPIO_PIN_4<<i),GPIO_PIN_RESET); // Drive column low
