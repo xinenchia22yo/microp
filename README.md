@@ -7,7 +7,12 @@
 I2C_HandleTypeDef hi2c1;      // Main I2C handle for LCD
 uint8_t lcd_addr = 0;          // Detected LCD I2C address
 
-
+// Assignment structure
+typedef struct {
+    char code[10];   // Course code
+    char days[5];    // Days left to submit
+    uint8_t submitted; // 1 if submitted, 0 if not
+} Assignment;
 
 Assignment myAssignments[5];   // Store up to 5 assignments
 int assignment_count = 0;      // Number of assignments saved
