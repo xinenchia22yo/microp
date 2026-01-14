@@ -14,8 +14,8 @@ typedef struct {
     uint8_t submitted; // 1 if submitted, 0 if not
 } Assignment;
 
-Assignment myAssignments[5];   // Store up to 5 assignments
-int assignment_count = 0;      // Number of assignments saved
+Assignment myAssignments[5];   // Array of structs to hold data for up to 5 assignments
+int assignment_count = 0;      // Counter to track how many assignments have been entered so far
 int display_idx = 0;           // Which assignment is currently displayed
 
 // Program state
@@ -44,10 +44,10 @@ void LCD_Send(uint8_t val, uint8_t rs) {
 void LCD_Init(void) {
     HAL_Delay(100); // Wait for LCD to power up
     LCD_Send(0x33, 0); LCD_Send(0x32, 0); // Initialize LCD in 4-bit mode
-    LCD_Send(0x28, 0); // 2 lines, 5x8 font
+    LCD_Send(0x28, 0); // Function Set: 2 lines, 5x8 pixel font matrix
     LCD_Send(0x0C, 0); // Display ON, cursor OFF
-    LCD_Send(0x01, 0); // Clear screen
-    HAL_Delay(5);
+    LCD_Send(0x01, 0); // Clear Display command
+    HAL_Delay(5);       //Clear display takes longer, so wait 5ms
 }
 
 void LCD_Print(char *str) {
@@ -172,7 +172,7 @@ int main(void){
         // ------------------- 1. Countdown -------------------
         if(HAL_GetTick()-last_countdown_tick >= COUNTDOWN_INTERVAL){
             last_countdown_tick = HAL_GetTick();
-            for(int i=0;i<assignment_count;i++){
+            for(int i=0;i<assignment_count;i++){            //// Only decrease days if not yet submitted
                 if(!myAssignments[i].submitted){
                     int d = atoi(myAssignments[i].days);
                     if(d>0) sprintf(myAssignments[i].days,"%d",d-1);
@@ -241,7 +241,7 @@ int main(void){
                 }
             }
 
-            HAL_Delay(200); // Key debounce
+            HAL_Delay(200); // Wait 200ms before accepting next key (Debouncing)
         }
     }
 }
