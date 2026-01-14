@@ -18,10 +18,13 @@ Assignment myAssignments[5];   // Store up to 5 assignments
 int assignment_count = 0;      // Number of assignments saved
 int display_idx = 0;           // Which assignment is currently displayed
 
+// Program state
+typedef enum { INPUT_COURSE, INPUT_DAYS, LIST_FULL, DISPLAY_MODE } InputState;
+InputState current_state = INPUT_COURSE;
 
-
-
-
+char temp_course[10] = {0};    // Temporary input for course code
+char temp_days[5] = {0};       // Temporary input for days
+uint8_t str_idx = 0;           // Index for typing input
 
 #define COUNTDOWN_INTERVAL 60000 // 1 minute in milliseconds
 uint32_t last_countdown_tick = 0; // Tracks last countdown update
