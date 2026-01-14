@@ -18,4 +18,21 @@ void LCD_Send(uint8_t val, uint8_t rs) {
     HAL_I2C_Master_Transmit(&hi2c1, lcd_addr, data, 4, 100);
     HAL_Delay(2); // Small delay for LCD to process
 }
+void LCD_Init(void) {
+    HAL_Delay(100); // Wait for LCD to power up
+    LCD_Send(0x33, 0); LCD_Send(0x32, 0); // Initialize LCD in 4-bit mode
+    LCD_Send(0x28, 0); // Function Set: 2 lines, 5x8 pixel font matrix
+    LCD_Send(0x0C, 0); // Display ON, cursor OFF
+    LCD_Send(0x01, 0); // Clear Display command
+    HAL_Delay(5);       //Clear display takes longer, so wait 5ms
+}
+
+void LCD_Print(char *str) {
+    while(*str) LCD_Send(*str++, 1);
+}
+
+void LCD_Clear(void) {
+    LCD_Send(0x01, 0); // Clear LCD command
+    HAL_Delay(2);
+}
 
