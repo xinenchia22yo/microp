@@ -40,6 +40,7 @@ void LCD_Send(uint8_t val, uint8_t rs) {
     HAL_I2C_Master_Transmit(&hi2c1, lcd_addr, data, 4, 100);
     HAL_Delay(2); // Small delay for LCD to process
 }
+
 void LCD_Init(void) {
     HAL_Delay(100); // Wait for LCD to power up
     LCD_Send(0x33, 0); LCD_Send(0x32, 0); // Initialize LCD in 4-bit mode
@@ -62,6 +63,64 @@ void LCD_Clear(void) {
 
 
 
+
+
+
+
+
+
+/* ================= DISPLAY FUNCTION ================= */
+void Update_Display_And_LEDs(void) {
+    if (current_state != DISPLAY_MODE) return;
+
+    LEDs_Off();
+    LCD_Clear();
+
+    int days_val = atoi(myAssignments[display_idx].days); // Convert days string to number
+    char line1[16], line2[16];
+
+    if (myAssignments[display_idx].submitted) {
+        LED_Set(GPIO_PIN_0); // Green LED
+        sprintf(line1,"#%d: %s [OK]", display_idx+1, myAssignments[display_idx].code);
+        strcpy(line2,"SUBMITTED");
+    } else if (days_val == 0) {
+        LED_Set(GPIO_PIN_2); // Red LED
+        sprintf(line1,"#%d: %s [!]", display_idx+1, myAssignments[display_idx].code);
+        strcpy(line2,"OVERDUE");
+    } else {
+        LED_Set(days_val <= 2 ? GPIO_PIN_2 : GPIO_PIN_1); // Red if <=2 days, Yellow otherwise
+        sprintf(line1,"#%d: %s", display_idx+1, myAssignments[display_idx].code);
+        sprintf(line2,"Days Left: %d", days_val);
+    }
+
+    LCD_Print(line1);
+    LCD_Send(0xC0,0); // Move to second line
+    LCD_Print(line2);
+}
+
+/* ================= KEYPAD ================= */
+char Keypad_Scan(void) {
+    char keys[4][4] = {
+        {'D','#','0','*'},
+        {'C','9','8','7'},
+        {'B','6','5','4'},
+        {'A','3','2','1'}
+    };
+
+    for(int i=0;i<4;i++){
+        HAL_GPIO_WritePin(GPIOA,(GPIO_PIN_4<<i),GPIO_PIN_RESET); // Drive column low
+        for(int j=0;j<4;j++){
+            if(HAL_GPIO_ReadPin(GPIOA,(GPIO_PIN_0<<j))==GPIO_PIN_RESET){ // Check row
+                HAL_Delay(20); 
+                while(HAL_GPIO_ReadPin(GPIOA,(GPIO_PIN_0<<j))==GPIO_PIN_RESET); // Wait release
+                HAL_GPIO_WritePin(GPIOA,(GPIO_PIN_4<<i),GPIO_PIN_SET);
+                return keys[i][j];
+            }
+        }
+        HAL_GPIO_WritePin(GPIOA,(GPIO_PIN_4<<i),GPIO_PIN_SET); // Set column high again
+    }
+    return 0; // No key pressed
+}
 
 /* ================= MAIN ================= */
 int main(void){
@@ -128,5 +187,31 @@ int main(void){
 
 
 
+
+
+
+
+        // ------------------- 3. Keypad -------------------
+        char key = Keypad_Scan();
+        if(key){
+            // --- Press A ---
+            if(key=='A'){
+                if(assignment_count==0){
+                    LCD_Clear(); LCD_Print("No Data!"); HAL_Delay(800);
+                    LCD_Clear(); LCD_Print("Asgn #1 Code:"); LCD_Send(0xC0,0);
+                } else {
+                    if(current_state!=DISPLAY_MODE) { current_state=DISPLAY_MODE; display_idx=0; }
+                    else display_idx=(display_idx+1)%assignment_count; // Scroll
+                    Update_Display_And_LEDs();
+                }
+            }
+
+            // --- Press '*' to exit display ---
+            else if(key=='*' && current_state==DISPLAY_MODE){
+                current_state = (assignment_count>=5)? LIST_FULL: INPUT_COURSE;
+                LEDs_Off(); LCD_Clear();
+                if(current_state==LIST_FULL) LCD_Print("STORAGE FULL");
+                else { char msg[16]; sprintf(msg,"Asgn #%d Code:",assignment_count+1); LCD_Print(msg); LCD_Send(0xC0,0);}
+            }
 
 void SysTick_Handler(void){ HAL_IncTick(); } // Required for HAL_GetTick and HAL_Delay
