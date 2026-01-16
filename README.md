@@ -214,4 +214,36 @@ int main(void){
                 else { char msg[16]; sprintf(msg,"Asgn #%d Code:",assignment_count+1); LCD_Print(msg); LCD_Send(0xC0,0);}
             }
 
+            // --- Input mode typing ---
+            else if(current_state!=DISPLAY_MODE && current_state!=LIST_FULL){
+                if(key=='*'){ // Save / Enter
+                    if(current_state==INPUT_COURSE && str_idx>0){ 
+                        current_state=INPUT_DAYS; str_idx=0; LCD_Clear(); LCD_Print("Days Left:"); LCD_Send(0xC0,0); 
+                    }
+                    else if(current_state==INPUT_DAYS && str_idx>0){
+                        strcpy(myAssignments[assignment_count].code,temp_course);
+                        strcpy(myAssignments[assignment_count].days,temp_days);
+                        myAssignments[assignment_count].submitted=0; assignment_count++;
+                        LCD_Clear();
+                        if(assignment_count>=5){ current_state=LIST_FULL; LCD_Print("STORAGE FULL"); }
+                        else{
+                            current_state=INPUT_COURSE; str_idx=0; memset(temp_course,0,sizeof(temp_course)); memset(temp_days,0,sizeof(temp_days));
+                            char msg[16]; sprintf(msg,"Asgn #%d Code:",assignment_count+1); LCD_Print(msg); LCD_Send(0xC0,0);
+                        }
+                    }
+                }
+                else if(key=='#'){ // Backspace
+                    if(str_idx>0){ str_idx--; if(current_state==INPUT_COURSE) temp_course[str_idx]=0; else temp_days[str_idx]=0; LCD_Send(0x10,0); LCD_Send(' ',1); LCD_Send(0x10,0);}
+                }
+                else{ // Typing keys
+                    if(current_state==INPUT_COURSE && str_idx<9){ temp_course[str_idx++]=key; LCD_Send(key,1); }
+                    else if(current_state==INPUT_DAYS && str_idx<4){ temp_days[str_idx++]=key; LCD_Send(key,1); }
+                }
+            }
+
+            HAL_Delay(200); // Key debounce
+        }
+    }
+}
+
 void SysTick_Handler(void){ HAL_IncTick(); } // Required for HAL_GetTick and HAL_Delay
