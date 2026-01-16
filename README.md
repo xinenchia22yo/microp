@@ -181,16 +181,16 @@ int main(void){
             if(current_state==DISPLAY_MODE) Update_Display_And_LEDs();
         }
 
-
-
-
-
-
-
-
-
-
-
+       // ------------------- 2. Submission button -------------------
+        if(current_state==DISPLAY_MODE && HAL_GPIO_ReadPin(GPIOA,GPIO_PIN_10)==GPIO_PIN_RESET){
+            HAL_Delay(50);
+            if(HAL_GPIO_ReadPin(GPIOA,GPIO_PIN_10)==GPIO_PIN_RESET){
+                myAssignments[display_idx].submitted=1;
+                Update_Display_And_LEDs();
+            }
+            while(HAL_GPIO_ReadPin(GPIOA,GPIO_PIN_10)==GPIO_PIN_RESET);
+        }
+        
         // ------------------- 3. Keypad -------------------
         char key = Keypad_Scan();
         if(key){
