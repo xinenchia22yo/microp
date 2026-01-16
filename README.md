@@ -59,15 +59,15 @@ void LCD_Clear(void) {
     HAL_Delay(2);
 }
 
+/* ================= LED HELPERS ================= */
+void LEDs_Off(void) {
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2, GPIO_PIN_RESET);
+}
 
-
-
-
-
-
-
-
-
+void LED_Set(uint8_t pin) {
+    LEDs_Off();
+    HAL_GPIO_WritePin(GPIOB, pin, GPIO_PIN_SET);
+}
 
 /* ================= DISPLAY FUNCTION ================= */
 void Update_Display_And_LEDs(void) {
